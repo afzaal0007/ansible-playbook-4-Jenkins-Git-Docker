@@ -1,0 +1,196 @@
+---
+- name: CI/CD Pipeline Setup for Java Spring Boot Application
+  hosts: all
+  become: true
+  vars:
+    java_version: "openjdk-11-jdk"
+    jenkins_version: "2.319.1"
+    docker_version: "5:20.10.7~3-0~debian-buster"
+    git_version: "2.30.0-1"
+    spring_boot_repo: "https://github.com/your-repo/spring-boot-app.git"
+    jenkins_admin_user: "admin"
+    jenkins_admin_password: "admin_password"
+    jenkins_api_token: "your_jenkins_api_token"
+    jenkins_url: "http://localhost:8080"
+  
+  tasks:
+    - name: Update the apt repository cache
+      apt:
+        update_cache: yes
+
+    - name: Install required dependencies
+      apt:
+        name:
+          - curl
+          - gnupg
+          - lsb-release
+          - apt-transport-https
+        state: present
+
+    - name: Install Java (OpenJDK 11)
+      apt:
+        name: "{{ java_version }}"
+        state: present
+
+    - name: Install Docker dependencies
+      apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - lsb-release
+        state: present
+
+    - name: Add Docker GPG key
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+
+    - name: Add Docker APT repository
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+        state: present
+
+    - name: Install Docker
+      apt:
+        name: "docker-ce={{ docker_version }}"
+        state: present
+
+    - name: Install Git
+      apt:
+        name: "git={{ git_version }}"
+        state: present
+
+    - name: Enable Docker to start on boot
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Install Jenkins dependencies
+      apt:
+        name:
+          - openjdk-11-jre
+          - apt-transport-https
+        state: present
+
+    - name: Add Jenkins repository
+      apt_repository:
+        repo: "deb http://pkg.jenkins.io/debian/ stable main"
+        state: present
+
+    - name: Add Jenkins GPG key
+      apt_key:
+        url: "https://pkg.jenkins.io/jenkins.io.key"
+        state: present
+
+    - name: Install Jenkins
+      apt:
+        name: "jenkins={{ jenkins_version }}"
+        state: present
+
+    - name: Start Jenkins service
+      systemd:
+        name: jenkins
+        state: started
+        enabled: yes
+
+    - name: Install Docker Compose (Optional)
+      shell: |
+        curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+        chmod +x /usr/local/bin/docker-compose
+
+    - name: Ensure Jenkins is running
+      uri:
+        url: "{{ jenkins_url }}"
+        status_code: 200
+
+    - name: Install required Jenkins plugins
+      uri:
+        url: "{{ jenkins_url }}/pluginManager/installNecessaryPlugins"
+        method: POST
+        user: "{{ jenkins_admin_user }}"
+        password: "{{ jenkins_admin_password }}"
+        body:
+          "<jenkins><install plugin='git'/><install plugin='docker-workflow'/></jenkins>"
+        headers:
+          Content-Type: application/xml
+        status_code: 200
+
+    - name: Set up Jenkins credentials for GitHub access
+      uri:
+        url: "{{ jenkins_url }}/credentials/store/system/domain/_/createCredentials"
+        method: POST
+        user: "{{ jenkins_admin_user }}"
+        password: "{{ jenkins_admin_password }}"
+        body: |
+          <com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>
+            <scope>GLOBAL</scope>
+            <id>github-credentials</id>
+            <username>your-github-username</username>
+            <password>your-github-token</password>
+            <description>GitHub credentials for CI/CD pipeline</description>
+          </com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl>
+        headers:
+          Content-Type: application/xml
+        status_code: 200
+
+    - name: Create a Jenkins job for building the Spring Boot app
+      uri:
+        url: "{{ jenkins_url }}/createItem?name=SpringBoot-Build-Pipeline"
+        method: POST
+        user: "{{ jenkins_admin_user }}"
+        password: "{{ jenkins_admin_password }}"
+        body: |
+          <flow-definition>
+            <definition class="org.jenkinsci.plugins.workflow.cps.CpsFlowDefinition">
+              <script>
+                pipeline {
+                  agent any
+                  stages {
+                    stage('Checkout') {
+                      steps {
+                        git 'https://github.com/your-repo/spring-boot-app.git'
+                      }
+                    }
+                    stage('Build') {
+                      steps {
+                        script {
+                          sh 'mvn clean install'
+                        }
+                      }
+                    }
+                    stage('Dockerize') {
+                      steps {
+                        script {
+                          sh 'docker build -t springboot-app .'
+                        }
+                      }
+                    }
+                    stage('Deploy') {
+                      steps {
+                        script {
+                          sh 'docker run -d -p 8080:8080 springboot-app'
+                        }
+                      }
+                    }
+                  }
+                }
+              </script>
+            </definition>
+          </flow-definition>
+        headers:
+          Content-Type: application/xml
+        status_code: 200
+
+    - name: Trigger Jenkins build for the first time
+      uri:
+        url: "{{ jenkins_url }}/job/SpringBoot-Build-Pipeline/build"
+        method: POST
+        user: "{{ jenkins_admin_user }}"
+        password: "{{ jenkins_admin_password }}"
+        status_code: 201
+
+    - name: Print completion message
+      debug:
+        msg: "CI/CD Pipeline setup completed. Jenkins job triggered for building the app."
