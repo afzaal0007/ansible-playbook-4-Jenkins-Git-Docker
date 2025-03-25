@@ -1,6 +1,6 @@
 ## ansible-playbook-4-Jenkins-Git-Docker
 
-# what this Playbook do 
+# Ansible Playbook: CI/CD Pipeline Setup
 Ansible playbook that automates the setup of a complete CI/CD pipeline environment for a development project. This solution covers the installation of Jenkins, Docker, Git, and the configuration of GitHub integration for automating the build and deployment of applications, particularly focusing on a Java Spring Boot application.
 
 # Problem Scenario:
