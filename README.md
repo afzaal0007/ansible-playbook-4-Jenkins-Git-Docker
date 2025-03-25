@@ -67,4 +67,4 @@ You will need to replace the placeholders like your-github-username, your-github
 
 
 
-![CI/CD Pipeline]()
+![CI/CD Pipeline](https://github.com/afzaal0007/ansible-playbook-4-Jenkins-Git-Docker/blob/main/Ansible-Playbook-CICD.webp)
