@@ -64,3 +64,7 @@ The playbook triggers the Jenkins pipeline to ensure that everything is configur
 The playbook assumes that you are working with a Spring Boot application and using Maven as the build tool. You may need to adjust the build stage if you're using a different build system (e.g., Gradle).
 
 You will need to replace the placeholders like your-github-username, your-github-token, and repository details with actual values.
+
+
+
+![CI/CD Pipeline]()
